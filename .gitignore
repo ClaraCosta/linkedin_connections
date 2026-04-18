@@ -8,5 +8,6 @@ output/
 
 *.xlsx
 *.xls
+.codex
 
 .DS_Store

@@ -10,6 +10,7 @@ chmod +x run.sh
 ```
 
 O `run.sh` abre o Google Chrome com um perfil de automacao em `.chrome-profile` e anexa o Selenium pela porta de depuracao `9222`. Se o LinkedIn pedir login, entre manualmente nessa janela uma vez e rode o script novamente.
+Ao iniciar, o script pergunta quantas conexoes devem ser feitas. Se nada for digitado em 10 segundos, usa 10 como padrao.
 
 ## Configuracoes
 

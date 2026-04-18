@@ -9,8 +9,32 @@ CHROME_BINARY="${CHROME_BINARY:-google-chrome}"
 CHROME_USER_DATA_DIR="${CHROME_USER_DATA_DIR:-$PROJECT_DIR/.chrome-profile}"
 CHROME_PROFILE_DIRECTORY="${CHROME_PROFILE_DIRECTORY:-Default}"
 CHROME_LOG="${CHROME_LOG:-/tmp/linkedin-connections-chrome.log}"
+DEFAULT_CONNECTION_LIMIT="${DEFAULT_CONNECTION_LIMIT:-10}"
 
 cd "$PROJECT_DIR"
+
+ask_connection_limit() {
+  local answer
+
+  echo "Quantas conexoes voce quer fazer hoje? Padrao: ${DEFAULT_CONNECTION_LIMIT}."
+  if read -r -t 10 -p "Digite um numero e pressione Enter em ate 10 segundos: " answer; then
+    if [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -gt 0 ]; then
+      DAILY_CONNECTION_LIMIT="$answer"
+    else
+      echo
+      echo "Entrada vazia ou invalida. Usando ${DEFAULT_CONNECTION_LIMIT} conexoes."
+      DAILY_CONNECTION_LIMIT="$DEFAULT_CONNECTION_LIMIT"
+    fi
+  else
+    echo
+    echo "Tempo esgotado. Usando ${DEFAULT_CONNECTION_LIMIT} conexoes."
+    DAILY_CONNECTION_LIMIT="$DEFAULT_CONNECTION_LIMIT"
+  fi
+
+  export DAILY_CONNECTION_LIMIT
+}
+
+ask_connection_limit
 
 check_debugger() {
   python3 - "$DEBUGGER_URL" <<'PY'
@@ -75,4 +99,5 @@ ATTACH_TO_EXISTING_CHROME=true \
 CHROME_DEBUGGER_ADDRESS="${DEBUGGER_HOST}:${DEBUGGER_PORT}" \
 CHROME_USER_DATA_DIR="$CHROME_USER_DATA_DIR" \
 CHROME_PROFILE_DIRECTORY="$CHROME_PROFILE_DIRECTORY" \
+DAILY_CONNECTION_LIMIT="$DAILY_CONNECTION_LIMIT" \
 python main.py
