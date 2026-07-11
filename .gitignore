@@ -1,6 +1,7 @@
 .venv/
 env/
 .env
+.linkedinbot.pid
 .chrome-profile/
 __pycache__/
 **/__pycache__/
