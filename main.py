@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 import time
-import urllib.error
-import urllib.request
+import socket
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -56,52 +56,48 @@ class PersonInfo:
 def build_driver() -> WebDriver:
     Path(settings.CHROMEDRIVER_LOG_PATH).parent.mkdir(parents=True, exist_ok=True)
 
-    options = Options()
-    options.binary_location = settings.CHROME_BINARY
+    print("Encerrando instancias anteriores do Chrome...")
+    subprocess.run(["pkill", "chrome"], check=False, capture_output=True)
 
-    if settings.ATTACH_TO_EXISTING_CHROME:
-        print(f"Anexando ao Chrome ja aberto em {settings.CHROME_DEBUGGER_ADDRESS}...")
-        ensure_debugger_is_available()
-        options.debugger_address = settings.CHROME_DEBUGGER_ADDRESS
-        return webdriver.Chrome(
-            service=Service(log_output=settings.CHROMEDRIVER_LOG_PATH),
-            options=options,
+    settings.CHROME_USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    for lock_name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        (settings.CHROME_USER_DATA_DIR / lock_name).unlink(missing_ok=True)
+
+    print("Abrindo Chrome com o perfil persistente do LinkedIn...")
+    subprocess.Popen(
+        [
+            settings.CHROME_BINARY,
+            "--remote-debugging-port=9222",
+            f"--user-data-dir={settings.CHROME_USER_DATA_DIR}",
+            "--disable-dev-shm-usage",
+            "--headless=new",
+            "--disable-gpu",
+            "--start-maximized",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    host, port = settings.CHROME_DEBUGGER_ADDRESS.rsplit(":", maxsplit=1)
+    for _ in range(15):
+        try:
+            with socket.create_connection((host, int(port)), timeout=1):
+                break
+        except OSError:
+            time.sleep(1)
+    else:
+        raise RuntimeError(
+            "O Chrome nao respondeu em "
+            f"{settings.CHROME_DEBUGGER_ADDRESS}."
         )
 
-    Path(settings.CHROME_USER_DATA_DIR).mkdir(parents=True, exist_ok=True)
-    print(f"Abrindo novo Chrome com perfil em {settings.CHROME_USER_DATA_DIR}...")
-    options.add_argument(f"--user-data-dir={settings.CHROME_USER_DATA_DIR}")
-    options.add_argument(f"--profile-directory={settings.CHROME_PROFILE_DIRECTORY}")
-    options.add_argument("--no-first-run")
-    options.add_argument("--no-default-browser-check")
-    options.add_argument("--remote-debugging-port=0")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-
-    if settings.START_MAXIMIZED:
-        options.add_argument("--start-maximized")
-
-    # Selenium Manager downloads or finds a compatible driver automatically.
+    options = Options()
+    options.binary_location = settings.CHROME_BINARY
+    options.debugger_address = settings.CHROME_DEBUGGER_ADDRESS
     return webdriver.Chrome(
         service=Service(log_output=settings.CHROMEDRIVER_LOG_PATH),
         options=options,
     )
-
-
-def ensure_debugger_is_available() -> None:
-    url = f"http://{settings.CHROME_DEBUGGER_ADDRESS}/json/version"
-    try:
-        with urllib.request.urlopen(url, timeout=2) as response:
-            if response.status == 200:
-                return
-    except urllib.error.URLError as exc:
-        raise RuntimeError(
-            "Nao consegui anexar ao Chrome aberto. "
-            "Abra o Chrome Default com depuracao remota antes de rodar o RPA. "
-            "Use: ./start_chrome_default_debug.sh"
-        ) from exc
-
 
 def wait_for_page_ready(driver: WebDriver) -> None:
     WebDriverWait(driver, settings.WAIT_SECONDS).until(
@@ -164,7 +160,8 @@ def open_my_network(driver: WebDriver) -> None:
         )
         menu_item.click()
         wait_for_page_ready(driver)
-    except TimeoutException:
+        time.sleep(2)
+    except (TimeoutException, StaleElementReferenceException):
         print("Nao encontrei o menu Minha rede; abrindo a URL diretamente...")
         driver.get(LINKEDIN_MY_NETWORK_URL)
         wait_for_page_ready(driver)
@@ -174,6 +171,15 @@ def go_to_people_suggestions(driver: WebDriver) -> None:
     print("Abrindo sugestoes de conexao...")
     driver.get(LINKEDIN_GROW_URL)
     wait_for_page_ready(driver)
+    time.sleep(2)
+
+    print("Rolando a pagina para carregar sugestoes de conexao...")
+    workspace = driver.find_element(By.CSS_SELECTOR, "main#workspace")
+    driver.execute_script(
+        "arguments[0].scrollBy(0, Math.floor(arguments[0].clientHeight * 1.25));",
+        workspace,
+    )
+    time.sleep(max(settings.SCROLL_PAUSE_SECONDS, 2))
 
 
 def find_connect_buttons(driver: WebDriver) -> list[WebElement]:
@@ -587,10 +593,7 @@ def main() -> int:
         print(
             "Falha ao iniciar/controlar o Chrome. "
             "Veja o log em "
-            f"{settings.CHROMEDRIVER_LOG_PATH}. "
-            "Se voce configurou o perfil diario e ele ja estiver aberto, "
-            "feche todas as janelas do Chrome ou ajuste CHROME_USER_DATA_DIR/"
-            "CHROME_PROFILE_DIRECTORY em settings.py.",
+            f"{settings.CHROMEDRIVER_LOG_PATH}.",
             file=sys.stderr,
         )
         print(str(exc), file=sys.stderr)
