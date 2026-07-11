@@ -29,6 +29,7 @@ Principais campos:
 - `DAILY_CONNECTION_LIMIT`: quantidade maxima de convites por execucao.
 - `MIN_INVITATION_PAUSE_SECONDS` e `MAX_INVITATION_PAUSE_SECONDS`: intervalo aleatorio entre convites.
 - `BATCH_SIZE`, `MIN_BATCH_PAUSE_SECONDS` e `MAX_BATCH_PAUSE_SECONDS`: tamanho do lote e pausa aleatoria apos cada lote.
+- `MAX_PAGE_REFRESHES_WITHOUT_SUGGESTIONS`: quantidade de recargas apos esgotar as sugestoes; o padrao e `1`.
 - `CHROME_BINARY`: caminho do Google Chrome.
 - `CHROME_USER_DATA_DIR`: perfil persistente do Chrome; o padrao e `~/.linkedin-selenium`.
 - `CHROMEDRIVER_LOG_PATH`: arquivo de log do ChromeDriver.

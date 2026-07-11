@@ -20,11 +20,23 @@ class ConnectionBot:
     def run(self) -> RunStats:
         self.linkedin.open_suggestions()
         stats = RunStats()
+        refreshes_without_suggestions = 0
         while stats.clicked < settings.DAILY_CONNECTION_LIMIT:
             buttons = self.linkedin.find_connect_buttons()
             if not buttons:
                 stats.scrolls_without_click += 1
                 if stats.scrolls_without_click >= MAX_SCROLL_ATTEMPTS_WITHOUT_CLICK:
+                    if refreshes_without_suggestions < settings.MAX_PAGE_REFRESHES_WITHOUT_SUGGESTIONS:
+                        refreshes_without_suggestions += 1
+                        self.logger.info(
+                            "Sem sugestoes apos %s rolagens; recarregando a pagina (%s/%s).",
+                            stats.scrolls_without_click,
+                            refreshes_without_suggestions,
+                            settings.MAX_PAGE_REFRESHES_WITHOUT_SUGGESTIONS,
+                        )
+                        self.linkedin.refresh_suggestions()
+                        stats.scrolls_without_click = 0
+                        continue
                     self.logger.info("Nenhuma sugestao encontrada apos %s rolagens", stats.scrolls_without_click)
                     break
                 self.linkedin.scroll_for_more_suggestions()

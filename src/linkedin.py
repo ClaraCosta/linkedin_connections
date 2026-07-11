@@ -76,6 +76,13 @@ class LinkedInClient:
         )
         time.sleep(settings.SCROLL_PAUSE_SECONDS)
 
+    def refresh_suggestions(self) -> None:
+        self.logger.info("Recarregando sugestoes de conexao")
+        self.driver.refresh()
+        self._wait_for_page_ready()
+        time.sleep(2)
+        self._scroll_workspace_for_suggestions()
+
     def person_info(self, button: WebElement) -> PersonInfo:
         label = self._aria_label(button) or self._visible_text(button)
         name_from_label = self._extract_person_hint(label)
